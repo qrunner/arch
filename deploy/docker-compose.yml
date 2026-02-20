@@ -1,0 +1,122 @@
+version: "3.8"
+
+services:
+  # PostgreSQL - structured asset data and change history
+  postgres:
+    image: postgres:16-alpine
+    container_name: arch-postgres
+    environment:
+      POSTGRES_USER: arch
+      POSTGRES_PASSWORD: arch
+      POSTGRES_DB: arch
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Neo4j - asset relationship graph
+  neo4j:
+    image: neo4j:5-community
+    container_name: arch-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/neo4jpassword
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "7474:7474"  # HTTP browser
+      - "7687:7687"  # Bolt protocol
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "neo4j", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # NATS - event bus for change notifications
+  nats:
+    image: nats:2-alpine
+    container_name: arch-nats
+    ports:
+      - "4222:4222"  # Client port
+      - "8222:8222"  # Monitoring port
+    command: ["--jetstream", "--store_dir=/data"]
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # API Server
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.server
+    container_name: arch-server
+    ports:
+      - "8080:8080"
+    environment:
+      ARCH_DATABASE_HOST: postgres
+      ARCH_DATABASE_PORT: "5432"
+      ARCH_DATABASE_USER: arch
+      ARCH_DATABASE_PASSWORD: arch
+      ARCH_DATABASE_DBNAME: arch
+      ARCH_DATABASE_SSLMODE: disable
+      ARCH_NEO4J_URI: bolt://neo4j:7687
+      ARCH_NEO4J_USER: neo4j
+      ARCH_NEO4J_PASSWORD: neo4jpassword
+      ARCH_NATS_URL: nats://nats:4222
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  # Collector Worker
+  collector:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.collector
+    container_name: arch-collector
+    environment:
+      ARCH_DATABASE_HOST: postgres
+      ARCH_DATABASE_PORT: "5432"
+      ARCH_DATABASE_USER: arch
+      ARCH_DATABASE_PASSWORD: arch
+      ARCH_DATABASE_DBNAME: arch
+      ARCH_DATABASE_SSLMODE: disable
+      ARCH_NEO4J_URI: bolt://neo4j:7687
+      ARCH_NEO4J_USER: neo4j
+      ARCH_NEO4J_PASSWORD: neo4jpassword
+      ARCH_NATS_URL: nats://nats:4222
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  # Frontend
+  web:
+    build:
+      context: ../web
+      dockerfile: ../deploy/docker/Dockerfile.web
+    container_name: arch-web
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  nats_data:
