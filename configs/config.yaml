@@ -1,0 +1,90 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 15s
+  write_timeout: 15s
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "arch"
+  password: "arch"
+  dbname: "arch"
+  sslmode: "disable"
+
+neo4j:
+  uri: "bolt://localhost:7687"
+  user: "neo4j"
+  password: "neo4jpassword"
+
+nats:
+  url: "nats://localhost:4222"
+
+scheduler:
+  enabled: true
+
+log:
+  level: "info"
+  format: "json"
+
+collectors:
+  - name: "network-scanner"
+    type: "nmap"
+    enabled: false
+    interval: "30m"
+    settings:
+      xml_path: "/data/nmap/scan.xml"
+
+  - name: "vcenter-prod"
+    type: "vmware"
+    enabled: false
+    interval: "15m"
+    settings:
+      url: "https://vcenter.example.com/sdk"
+      username: "readonly@vsphere.local"
+      password: ""
+
+  - name: "zabbix-prod"
+    type: "zabbix"
+    enabled: false
+    interval: "10m"
+    settings:
+      url: "https://zabbix.example.com/api_jsonrpc.php"
+      username: "api_user"
+      password: ""
+
+  - name: "ansible-inventory"
+    type: "ansible"
+    enabled: false
+    interval: "30m"
+    settings:
+      inventory_path: "/data/ansible/inventory.json"
+
+  - name: "k8s-prod"
+    type: "k8s"
+    enabled: false
+    interval: "5m"
+    settings:
+      kubeconfig: "/data/k8s/kubeconfig"
+
+  - name: "netscaler-prod"
+    type: "netscaler"
+    enabled: false
+    interval: "15m"
+    settings:
+      url: "https://netscaler.example.com/nitro/v1"
+      username: "nsroot"
+      password: ""
+
+notifier:
+  webhook:
+    url: ""
+  email:
+    host: ""
+    port: 587
+    from: ""
+    user: ""
+    password: ""
+  telegram:
+    token: ""
+    chat_id: ""
